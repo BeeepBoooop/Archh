@@ -1,5 +1,10 @@
-#!/bin/bash
-#-------------------------------------------------------------------------
+#!/usr/bin/env bash
+#github-action genshdoc
+#
+# @file User
+# @brief User customizations and AUR package installation.
+echo -ne "
+-------------------------------------------------------------------------
  #####                              
 #     # #       ####  #    # ###### 
 #       #      #    # ##  ## #      
@@ -8,60 +13,70 @@
 #     # #      #    # #    # #      
  #####  ######  ####  #    # ###### 
                                     
-#-------------------------------------------------------------------------
-echo -e "\nINSTALLING AUR SOFTWARE\n"
-# You can solve users running this script as root with this and then doing the same for the next for statement. However I will leave this up to you.
+-------------------------------------------------------------------------
+                        SCRIPTHOME: Clome
+-------------------------------------------------------------------------
 
-echo "CLONING: YAY"
-cd ~
-git clone "https://aur.archlinux.org/yay.git"
-cd ${HOME}/yay
-makepkg -si --noconfirm
-cd ~
-touch "$HOME/.cache/zshhistory"
-git clone "https://github.com/ChrisTitusTech/zsh"
-git clone --depth=1 https://github.com/romkatv/powerlevel10k.git $HOME/powerlevel10k
-ln -s "$HOME/zsh/.zshrc" $HOME/.zshrc
+Installing AUR Softwares
+"
+source $HOME/Clome/configs/setup.conf
 
-PKGS=(
-'autojump'
-'awesome-terminal-fonts'
-'brave-bin' # Brave Browser
-'dxvk-bin' # DXVK DirectX to Vulcan
-'github-desktop-bin' # Github Desktop sync
-'lightly-git'
-'lightlyshaders-git'
-'mangohud' # Gaming FPS Counter
-'mangohud-common'
-'nerd-fonts-fira-code'
-'nordic-darker-standard-buttons-theme'
-'nordic-darker-theme'
-'nordic-kde-git'
-'nordic-theme'
-'noto-fonts-emoji'
-'papirus-icon-theme'
-'plasma-pa'
-'ocs-url' # install packages from websites
-'sddm-nordic-theme-git'
-'snapper-gui-git'
-'ttf-droid'
-'ttf-hack'
-'ttf-meslo' # Nerdfont package
-'ttf-roboto'
-'zoom' # video conferences
-'snap-pac'
-)
+  cd ~
+  mkdir "/home/$USERNAME/.cache"
+  touch "/home/$USERNAME/.cache/zshhistory"
+  git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ~/powerlevel10k
+  ln -s "~/zsh/.zshrc" ~/.zshrc
 
-for PKG in "${PKGS[@]}"; do
-    yay -S --noconfirm $PKG
+sed -n '/'$INSTALL_TYPE'/q;p' ~/Clome/pkg-files/${DESKTOP_ENV}.txt | while read line
+do
+  if [[ ${line} == '--END OF MINIMAL INSTALL--' ]]
+  then
+    # If selected installation type is FULL, skip the --END OF THE MINIMAL INSTALLATION-- line
+    continue
+  fi
+  echo "INSTALLING: ${line}"
+  sudo pacman -S --noconfirm --needed ${line}
 done
 
-export PATH=$PATH:~/.local/bin
-cp -r $HOME/Clome/dotfiles/* $HOME/.config/
-pip install konsave
-konsave -i $HOME/Clome/kde.knsv
-sleep 1
-konsave -a kde
 
-echo -e "\nDone!\n"
+if [[ ! $AUR_HELPER == none ]]; then
+  cd ~
+  git clone "https://aur.archlinux.org/$AUR_HELPER.git"
+  cd ~/$AUR_HELPER
+  makepkg -si --noconfirm
+  # sed $INSTALL_TYPE is using install type to check for MINIMAL installation, if it's true, stop
+  # stop the script and move on, not installing any more packages below that line
+  sed -n '/'$INSTALL_TYPE'/q;p' ~/Clome/pkg-files/aur-pkgs.txt | while read line
+  do
+    if [[ ${line} == '--END OF MINIMAL INSTALL--' ]]; then
+      # If selected installation type is FULL, skip the --END OF THE MINIMAL INSTALLATION-- line
+      continue
+    fi
+    echo "INSTALLING: ${line}"
+    $AUR_HELPER -S --noconfirm --needed ${line}
+  done
+fi
+
+export PATH=$PATH:~/.local/bin
+
+# Theming DE if user chose FULL installation
+if [[ $INSTALL_TYPE == "FULL" ]]; then
+  if [[ $DESKTOP_ENV == "kde" ]]; then
+    cp -r ~/Clome/configs/.config/* ~/.config/
+    pip install konsave
+    konsave -i ~/Clome/configs/kde.knsv
+    sleep 1
+    konsave -a kde
+  elif [[ $DESKTOP_ENV == "openbox" ]]; then
+    cd ~
+    git clone https://github.com/stojshic/dotfiles-openbox
+    ./dotfiles-openbox/install-titus.sh
+  fi
+fi
+
+echo -ne "
+-------------------------------------------------------------------------
+                    SYSTEM READY FOR 3-post-setup.sh
+-------------------------------------------------------------------------
+"
 exit
